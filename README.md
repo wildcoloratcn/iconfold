@@ -1,21 +1,24 @@
 # IconFold
 
-Mac菜单栏图标折叠器 — 把被遮挡的图标折叠成一个数字，点击展开。
+A lightweight macOS menu bar utility that **detects** which icons are blocked by the MacBook Pro notch or Dynamic Island.
 
-## 功能
+## What It Does
 
-- **自动检测**被MacBook Pro刘海遮挡的菜单栏图标
-- **折叠显示**为一个数字按钮（如 "+3"）
-- **点击展开**下拉菜单，显示所有被折叠的App
-- **系统图标豁免**：日期、时间、电池、无线网、蓝牙、音量等永远不被折叠
+IconFold uses the macOS Accessibility API to detect menu bar icon positions and identify which icons fall within the notch region. It displays a count in your menu bar so you know at a glance if any icons are being hidden.
 
-## 技术
+- **Detects** blocked menu bar icons using Accessibility API
+- **Status bar indicator** shows count of hidden icons (red) or "OK" (green)
+- **Click to expand** — see which apps' icons are in the blocked zone
+- **System icons exempt** — Control Center, Clock, Battery, WiFi, Bluetooth, Volume, etc. are never flagged
 
-- Swift + AppKit
-- NSStatusItem 菜单栏App
-- 菜单栏UI元素（无窗口）
+## Requirements
 
-## 构建
+- macOS 12.0 (Monterey) or later
+- **Accessibility permission** — required for detecting menu bar icon positions
+
+On first launch, the app will prompt you to grant Accessibility access in **System Settings → Privacy & Security → Accessibility**.
+
+## Build
 
 ```bash
 cd IconFold
@@ -23,23 +26,30 @@ xcodegen generate
 xcodebuild -project IconFold.xcodeproj -scheme IconFold -configuration Debug build
 ```
 
-## 运行
-
-构建完成后，App位于:
+The built app will be in:
 ```
-IconFold.app/Contents/MacOS/IconFold
+~/Library/Developer/Xcode/DerivedData/IconFold-*/Build/Products/Debug/IconFold.app
 ```
 
-或者直接运行:
-```bash
-open IconFold.app
-```
+## Usage
 
-## 定价
+1. Launch IconFold — it appears as a small indicator in your menu bar
+2. Grant Accessibility permission when prompted
+3. The menu bar shows:
+   - A **red number** — count of icons detected in the notch/Dynamic Island region
+   - A **green checkmark** — no icons blocked
+   - An **orange warning** — needs permission
+4. Click the indicator to see the list of affected apps
 
-- **免费版**：限制最多折叠5个图标
-- **Pro版**：$5买断，无限制
+## Limitations
 
-## 参考
+- **Detection, not hiding** — this app detects and reports which icons may be blocked, but cannot actually hide them. For true hiding behavior, see [Hidden Bar](https://github.com/dwarvesf/hidden).
+- Accessibility API access is required and cannot be bypassed
+- Detection is approximate — the notch region is estimated based on screen geometry
 
-- [RunningCat](https://runningcat.app) — 类似风格的菜单栏小工具
+## Tech Stack
+
+- Swift + AppKit
+- NSStatusItem (LSUIElement — no dock icon)
+- Accessibility API (ApplicationServices.framework)
+- XcodeGen for project generation
