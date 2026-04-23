@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+*.swp
+*.swo
+
+# Xcode
+xcuserdata/
+*.xcuserdatad/
+*.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+
+# DerivedData
+DerivedData/
+
+# Build
+build/
+*.app
+*.appex
+*.dylib
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.log
