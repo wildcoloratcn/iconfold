@@ -7,16 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		8B3772819EB811CA548834BF /* MenuBarDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7CFCBC1EBEF475D86817403 /* MenuBarDetector.swift */; };
+		5AC8FEA698960F5189774CF3 /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E75F848BC8C09D91AE1D468 /* StatusBarController.swift */; };
 		C1BD1ECA4C4527BC1032A140 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9DBB637EEF0483AC1848E5A /* main.swift */; };
 		C871C475EA5F28CCDE21CFD9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6B323FAF467A1C8DA442AC /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1E75F848BC8C09D91AE1D468 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
 		5D6B323FAF467A1C8DA442AC /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A9DBB637EEF0483AC1848E5A /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		D65216DBC62AAEDF5DC89288 /* IconFold.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IconFold.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E7CFCBC1EBEF475D86817403 /* MenuBarDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDetector.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -25,7 +25,7 @@
 			children = (
 				5D6B323FAF467A1C8DA442AC /* AppDelegate.swift */,
 				A9DBB637EEF0483AC1848E5A /* main.swift */,
-				E7CFCBC1EBEF475D86817403 /* MenuBarDetector.swift */,
+				1E75F848BC8C09D91AE1D468 /* StatusBarController.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -106,7 +106,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C871C475EA5F28CCDE21CFD9 /* AppDelegate.swift in Sources */,
-				8B3772819EB811CA548834BF /* MenuBarDetector.swift in Sources */,
+				5AC8FEA698960F5189774CF3 /* StatusBarController.swift in Sources */,
 				C1BD1ECA4C4527BC1032A140 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
