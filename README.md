@@ -1,26 +1,27 @@
 # IconFold
 
-A lightweight macOS menu bar utility that **folds** menu bar icons to the right of a divider — inspired by [Hidden Bar](https://github.com/dwarvesf/hidden).
+A lightweight macOS menu bar utility with a single button that **folds all icons to its right** — click to hide, click again to show.
 
 ## What It Does
 
-IconFold adds a divider and a collapse/expand button to your menu bar. Position them to the left of the icons you want to hide, then click the button to fold them away from the notch or Dynamic Island.
-
 ```
-[📍] [→] | [🔔] [📧] [💬] ...
-           ↑ divider + fold button
+[→ 3] | [🔔] [📧] [💬] ...
+ ↑
+ fold button (shows hidden count)
 ```
 
-- **Fold/Unfold**: Click the arrow button to hide/show icons to its right
-- **Drag to position**: CMD+drag to reorder; position is remembered
-- **Auto-collapse**: Folds automatically when you click outside the menu bar
-- **System icons protected**: The divider sits between your icons; system icons on the far right stay visible
+IconFold places a single fold button in your menu bar. Position it to the left of the icons you want to hide (CMD+drag), then click to toggle.
+
+- **Click to fold** — hides all icons to the right (pushes them off-screen)
+- **Click to unfold** — reveals them again
+- **Shows hidden count** — displays a badge with the estimated number of hidden icons
+- **Auto-hide** — automatically folds when you click outside the menu bar
 
 ## Usage
 
-1. Launch IconFold — two items appear in your menu bar: a divider (`|||`) and a fold button (`→`)
-2. **CMD+drag** both items to the left of the icons you want to hide
-3. Click the `→` button to fold (hide) icons to its right
+1. Launch IconFold — a button `→` appears in the menu bar
+2. **CMD+drag** it to the left of the icons you want to hide
+3. Click `→ 3` to fold (hides icons, shows `← N` with count)
 4. Click `←` to unfold
 
 ### Click Actions
@@ -29,12 +30,11 @@ IconFold adds a divider and a collapse/expand button to your menu bar. Position 
 |--------|--------|
 | Left click | Toggle fold/unfold |
 | Right click | Show context menu |
-| Option + left click | Toggle auto-collapse |
 
 ### Context Menu
 
-- **Toggle Fold** — manually fold/unfold
-- **Auto Collapse** (checkmark on/off) — auto-collapse when clicking outside menu bar
+- **Show Icons / Hide Icons** — toggle manually
+- **Auto-hide Enabled / Disabled** — auto-collapse when clicking outside menu bar
 - **Quit IconFold**
 
 ## Build
@@ -52,17 +52,17 @@ The built app will be in:
 
 ## How It Works
 
-IconFold uses the same technique as Hidden Bar:
+IconFold uses a single `NSStatusItem` with `variableLength`:
 
-1. Two `NSStatusItem` objects with `variableLength` are inserted into the menu bar
-2. The **divider** (`btnSeparate`) has length `1pt` normally and `2000+pt` when collapsed
-3. When collapsed, the divider occupies all space to the right, effectively pushing all icons off-screen
-4. `autosaveName` lets the system remember the items' positions across restarts
+- **Folded**: `length = screenWidth + 500` — occupies the full width, pushing all other icons off the right edge of the screen
+- **Expanded**: `length = NSStatusItem.variableLength` — system calculates natural width, all icons visible
+
+`autosaveName` lets the system remember the item's position across restarts.
 
 ## Requirements
 
 - macOS 12.0 (Monterey) or later
-- No special permissions required (unlike the detection-only approach)
+- No special permissions required
 
 ## Tech Stack
 
@@ -70,9 +70,3 @@ IconFold uses the same technique as Hidden Bar:
 - NSStatusItem with `variableLength`
 - NSEvent global monitor for auto-collapse
 - XcodeGen for project generation
-
-## See Also
-
-- [Hidden Bar](https://github.com/dwarvesf/hidden) — the original, more full-featured implementation
-- [Bartender](https://www.macbartender.com) — commercial menu bar icon organizer
-- [Dozer](https://github.com/MortenGregersen/Dozer) — another open-source alternative

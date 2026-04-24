@@ -1,58 +1,42 @@
 import AppKit
 import Foundation
 
-/// Controls the menu bar status items that fold/unfold icons to the right.
+/// IconFold - Single button to fold/unfold menu bar icons.
 ///
-/// Mechanism (inspired by Hidden Bar):
-/// - btnSeparate: a thin separator (1pt normal, 2000+pt when collapsed)
-/// - When collapsed, btnSeparate takes up all space to its right,
-///   effectively pushing all icons beyond the screen edge
-/// - User drags both items to position them; autosaveName preserves position
+/// How it works:
+/// - One NSStatusItem with variableLength acts as both the divider and the toggle
+/// - When "collapsed": length = screenWidth (pushes ALL icons to the right off-screen)
+/// - When "expanded": length = auto (system default, icons visible)
+/// - Shows a count badge of how many icons are hidden
+///
+/// User CMD+drags this button to position it to the left of icons they want to hide.
 class StatusBarController {
     
-    // MARK: - Status Items
+    // MARK: - Status Item
     
-    /// Expand/collapse button with arrow icon
-    private let btnExpandCollapse = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    
-    /// Thin separator that acts as the "fold line"
-    private let btnSeparate = NSStatusBar.system.statusItem(withLength: 1)
-    
-    // MARK: - Length Constants
-    
-    /// Normal (expanded) length of the separator
-    private let btnNormalLength: CGFloat = 1
-    
-    /// Collapsed length — pushes all icons to the right off-screen
-    private var btnCollapsedLength: CGFloat = 2000
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     
     // MARK: - State
     
-    private var isCollapsed: Bool {
-        return btnSeparate.length == btnCollapsedLength
-    }
+    /// Whether icons to the right are currently hidden (pushed off-screen)
+    private(set) var isCollapsed: Bool = false
     
-    /// Debounce rapid clicks
-    private var isToggle = false
+    /// Count of hidden icons (estimated based on position)
+    private var hiddenCount: Int = 0
     
-    // MARK: - Event Monitor (for auto-collapse on outside click)
+    /// Debounce
+    private var isProcessing: Bool = false
+    
+    // MARK: - Auto-hide
     
     private var eventMonitor: Any?
-    
-    /// Auto-collapse preference (default: on)
-    private var isAutoCollapseEnabled = true
+    private var isAutoHideEnabled: Bool = true
     
     // MARK: - Init
     
     init() {
-        updateCollapsedLength()
         setupUI()
         setupEventMonitor()
-        
-        // Auto-collapse after launch
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.collapse()
-        }
         
         NotificationCenter.default.addObserver(
             self,
@@ -70,38 +54,47 @@ class StatusBarController {
     // MARK: - Setup
     
     private func setupUI() {
-        // Separator button
-        if let sepButton = btnSeparate.button {
-            sepButton.image = NSImage(systemSymbolName: "line.horizontal.3", accessibilityDescription: "Separator")
-            sepButton.image?.isTemplate = true
-        }
-        btnSeparate.menu = getContextMenu()
-        btnSeparate.autosaveName = "iconfold_separate"
+        guard let button = statusItem.button else { return }
         
-        // Expand/collapse button
-        if let btn = btnExpandCollapse.button {
-            btn.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Fold")
-            btn.image?.isTemplate = true
-            btn.target = self
-            btn.action = #selector(expandCollapsePressed)
-            btn.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        button.target = self
+        button.action = #selector(statusItemClicked)
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        
+        // Enable CMD+drag positioning
+        statusItem.autosaveName = "iconfold_main"
+        
+        updateButtonAppearance()
+    }
+    
+    private func updateButtonAppearance() {
+        guard let button = statusItem.button else { return }
+        
+        if isCollapsed {
+            // Collapsed: show chevron-left + count, icon pushes right
+            button.image = NSImage(systemSymbolName: "chevron.left.2", accessibilityDescription: "Expand")
+            button.title = hiddenCount > 0 ? " \(hiddenCount)" : ""
+        } else {
+            // Expanded: show chevron-right
+            button.image = NSImage(systemSymbolName: "chevron.right.2", accessibilityDescription: "Fold")
+            button.title = ""
         }
-        btnExpandCollapse.autosaveName = "iconfold_expandcollapse"
+        
+        button.image?.isTemplate = true
+        button.imagePosition = .imageLeft
+        button.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
     }
     
     // MARK: - Event Monitor (auto-collapse on outside click)
     
     private func setupEventMonitor() {
-        // Monitor for left mouse clicks outside the menu bar area
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] event in
-            guard let self = self, self.isAutoCollapseEnabled else { return }
-            guard self.isCollapsed else { return }
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] event in
+            guard let self = self else { return }
+            guard self.isAutoHideEnabled && self.isCollapsed else { return }
             
-            // Check if the click was in the menu bar area
             let mouseLocation = NSEvent.mouseLocation
             guard let screen = NSScreen.main else { return }
             
-            // Menu bar is at the top of the screen
+            // Menu bar is at top of screen
             let menuBarHeight: CGFloat = 25
             let menuBarRect = CGRect(
                 x: 0,
@@ -110,7 +103,7 @@ class StatusBarController {
                 height: menuBarHeight
             )
             
-            // If click is outside the menu bar, collapse
+            // If click is outside menu bar area, auto-collapse
             if !menuBarRect.contains(mouseLocation) {
                 self.collapse()
             }
@@ -124,101 +117,108 @@ class StatusBarController {
         }
     }
     
-    // MARK: - Collapsed Length
-    
-    /// Bound collapsed length to avoid memory issues on newer macOS
-    private func updateCollapsedLength() {
-        let screenWidth = NSScreen.main?.visibleFrame.width ?? 1728
-        btnCollapsedLength = max(500, min(screenWidth + 200, 4000))
-    }
-    
     @objc private func screenParametersChanged() {
-        updateCollapsedLength()
+        // Screen config changed, re-calculate if needed
     }
     
     // MARK: - Actions
     
-    @objc private func expandCollapsePressed(_ sender: NSStatusBarButton) {
-        guard !isToggle else { return }
-        isToggle = true
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        guard !isProcessing else { return }
+        isProcessing = true
         
         let event = NSApp.currentEvent
         
-        if event?.modifierFlags.contains(.option) == true {
-            // Option+click: toggle auto-collapse
-            toggleAutoCollapse()
-        } else if event?.type == .rightMouseUp {
+        if event?.type == .rightMouseUp {
             // Right-click: show context menu
-            btnSeparate.menu?.popUp(positioning: nil, at: NSPoint(x: 0, y: 0), in: btnSeparate.button)
+            showContextMenu()
         } else {
-            // Left-click: expand or collapse
-            isCollapsed ? expand() : collapse()
+            // Left-click: toggle
+            toggle()
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.isToggle = false
+            self.isProcessing = false
         }
     }
     
-    func expandCollapse() {
-        guard !isToggle else { return }
-        isToggle = true
-        isCollapsed ? expand() : collapse()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.isToggle = false
+    func toggle() {
+        if isCollapsed {
+            expand()
+        } else {
+            collapse()
         }
     }
     
     // MARK: - Fold / Unfold
     
+    /// Collapse: make the status item very wide, pushing all right-side icons off-screen
     private func collapse() {
         guard !isCollapsed else { return }
+        isCollapsed = true
         
-        btnSeparate.length = btnCollapsedLength
-        if let btn = btnExpandCollapse.button {
-            btn.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Unfold")
-            btn.image?.isTemplate = true
-        }
+        // Estimate how many icons might be hidden based on screen position
+        updateHiddenCount()
+        
+        // Set length to screen width + buffer to push everything right off-screen
+        let screenWidth = NSScreen.main?.frame.width ?? 1728
+        statusItem.length = screenWidth + 500
+        
+        updateButtonAppearance()
     }
     
+    /// Expand: restore normal length
     private func expand() {
         guard isCollapsed else { return }
+        isCollapsed = false
         
-        btnSeparate.length = btnNormalLength
-        if let btn = btnExpandCollapse.button {
-            btn.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Fold")
-            btn.image?.isTemplate = true
-        }
+        // Restore to variableLength (system auto-calculates)
+        statusItem.length = NSStatusItem.variableLength
+        
+        updateButtonAppearance()
     }
     
-    // MARK: - Auto Collapse Toggle
-    
-    private func toggleAutoCollapse() {
-        isAutoCollapseEnabled.toggle()
+    private func updateHiddenCount() {
+        // Estimate: count running apps that likely have menu bar icons
+        // This is approximate - we can't get exact positions without Accessibility API
+        let runningApps = NSWorkspace.shared.runningApplications
+        var count = 0
+        
+        for app in runningApps {
+            guard app.activationPolicy == .regular || app.activationPolicy == .accessory else { continue }
+            count += 1
+        }
+        
+        // Subtract system icons and estimate based on position
+        hiddenCount = max(0, count - 3) // Assume ~3 icons are always visible
     }
     
     // MARK: - Context Menu
     
-    private func getContextMenu() -> NSMenu {
+    private func showContextMenu() {
         let menu = NSMenu()
         
-        let infoItem = NSMenuItem(title: "IconFold", action: nil, keyEquivalent: "")
-        infoItem.isEnabled = false
-        menu.addItem(infoItem)
+        let titleItem = NSMenuItem(title: isCollapsed ? "🔒 Icons Hidden" : "🔓 Icons Visible", action: nil, keyEquivalent: "")
+        titleItem.isEnabled = false
+        menu.addItem(titleItem)
+        
+        if hiddenCount > 0 {
+            menu.addItem(NSMenuItem(title: "  ~\(hiddenCount) icons estimated hidden", action: nil, keyEquivalent: ""))
+        }
         
         menu.addItem(NSMenuItem.separator())
         
-        let toggleItem = NSMenuItem(title: "Toggle Fold", action: #selector(toggleFromMenu), keyEquivalent: "t")
+        let toggleItem = NSMenuItem(title: isCollapsed ? "☀️ Show Icons" : "🌙 Hide Icons", action: #selector(toggleFromMenu), keyEquivalent: "t")
         toggleItem.target = self
         menu.addItem(toggleItem)
         
-        let autoCollapseItem = NSMenuItem(
-            title: isAutoCollapseEnabled ? "✓ Auto Collapse" : "Auto Collapse",
-            action: #selector(toggleAutoCollapseFromMenu),
+        let autoItem = NSMenuItem(
+            title: isAutoHideEnabled ? "✅ Auto-hide Enabled" : "☐ Auto-hide Disabled",
+            action: #selector(toggleAutoHideFromMenu),
             keyEquivalent: ""
         )
-        autoCollapseItem.target = self
-        menu.addItem(autoCollapseItem)
+        autoItem.target = self
+        menu.addItem(autoItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -226,15 +226,17 @@ class StatusBarController {
         quitItem.target = self
         menu.addItem(quitItem)
         
-        return menu
+        statusItem.menu = menu
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
     }
     
     @objc private func toggleFromMenu() {
-        expandCollapse()
+        toggle()
     }
     
-    @objc private func toggleAutoCollapseFromMenu() {
-        toggleAutoCollapse()
+    @objc private func toggleAutoHideFromMenu() {
+        isAutoHideEnabled.toggle()
     }
     
     @objc private func quitApp() {
